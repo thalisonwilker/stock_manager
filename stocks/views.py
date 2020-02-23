@@ -2,7 +2,7 @@ from django.db.models import Count, Min, Max,Sum
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .serializers import ItemSerializer, StockItemSerializer, StockSerializer
+from .serializers import ItemSerializer, SampleItemSerializer, StockItemSerializer, StockSerializer
 from .models import Item, StockItem
 
 
@@ -54,14 +54,35 @@ class StockViewSets(viewsets.ViewSet):
 
     def list(self, request):
         items_in_stock = StockItem.objects.all().count()
-
         total_quantity = StockItem.objects.aggregate(total_quantity=Sum("stock_quantity"))        
         total_price = StockItem.objects.aggregate(total_price=Sum("item__price"))
         total_cost = StockItem.objects.aggregate(total_cost=Sum("item__cost"))
+
+        max_stock_item = StockItem.objects.aggregate(max_stock=Max("item"))["max_stock"]
+        min_tock_item = StockItem.objects.aggregate(min_tock=Max("item"))["min_tock"]
+
+        max_stock_item = self._get_item_or_none(max_stock_item)
+        min_tock_item = self._get_item_or_none(min_tock_item)
 
         total_price = total_price["total_price"]
         total_cost = total_cost["total_cost"]
 
         total_money_in_stock = total_price - total_cost
 
-        return Response({"total_money": total_money_in_stock, "items_in_stock":items_in_stock})
+        return Response(
+            {
+                "total_money": total_money_in_stock,
+                "total_items_in_stock": items_in_stock,
+                "max_stock_item":max_stock_item,
+                "min_tock_item": min_tock_item
+            }
+            )
+
+
+    def _get_item_or_none(self, item):
+        try:
+            item = Item.objects.get(pk=item)
+            serializer = SampleItemSerializer(item)
+            return serializer.data
+        except:
+            return None
